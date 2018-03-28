@@ -89,4 +89,128 @@ Lemma p4 : is_ABR benchmark_03.
 apply_is_ABR.
 Qed.
 
+Inductive value_exists : AB -> Z -> Prop :=
+  | Curr : forall (v : Z) (a al ar : AB), a = (Node v al ar) -> value_exists a v
+  | Left : forall (v vl : Z) (a al ar : AB), a = (Node v al ar) -> value_exists al vl ->
+    value_exists a vl
+  | Right : forall (v vr : Z) (a al ar : AB), a = (Node v al ar) -> value_exists ar vr ->
+    value_exists a vr.
+
+Lemma p5 : value_exists benchmark_01 3.
+eapply Curr.
+reflexivity.
+Qed.
+
+Lemma p6 : value_exists benchmark_03 17.
+eapply Right.
+reflexivity.
+eapply Left.
+reflexivity.
+eapply Curr.
+reflexivity.
+Qed.
+
+Require Export Compare_dec.
+
+Fixpoint search (arbre : AB) (v : Z) : bool :=
+  match arbre with
+  | Empty => false
+  | Node w al ar =>
+    if Z.eq_dec w v then true
+    else if Z_lt_dec w v then search ar v
+    else search al v
+end.
+
+Functional Scheme search_ind := Induction for search Sort Prop.
+
+Theorem search_sound : 
+  forall (arbre : AB) (v : Z), is_ABR arbre -> search arbre v = true -> value_exists arbre v.
+
+Proof.
+intro.
+intro.
+intro.
+functional induction (search arbre v) using search_ind; intros.
+eapply Curr.
+auto.
+eapply Right.
+auto.
+apply IHb.
+inversion H.
+apply_is_ABR.
+assumption.
+apply_is_ABR.
+assumption.
+assumption.
+eapply Left.
+auto.
+apply IHb.
+inversion H.
+apply_is_ABR.
+assumption.
+assumption.
+apply_is_ABR.
+assumption.
+contradict H0.
+discriminate.
+Qed.
+
+Theorem search_complete : forall (arbre : AB) (v : Z), is_ABR arbre -> value_exists arbre v -> search arbre v = true.
+
+Proof.
+intro.
+intro.
+intro.
+intro.
+induction H0.
+induction H.
+contradict H0.
+intro.
+discriminate H.
+rewrite H0.
+simpl.
+elim (Z.eq_dec v v); intro.
+reflexivity.
+elim (Z_lt_dec v v); intro; contradict b; reflexivity.
+rewrite H0.
+simpl.
+elim (Z.eq_dec v v); intro.
+reflexivity.
+elim (Z_lt_dec v v); intro; contradict b; reflexivity.
+rewrite H0.
+simpl.
+elim (Z.eq_dec v v); intro.
+reflexivity.
+elim (Z_lt_dec v v); intro; contradict b; reflexivity.
+rewrite H0.
+simpl.
+elim (Z.eq_dec v v); intro.
+reflexivity.
+elim (Z_lt_dec v v); intro; contradict b; reflexivity.
+rewrite H0.
+simpl.
+elim (Z.eq_dec v vl); intro.
+reflexivity.
+elim (Z_lt_dec v vl); intro.
+inversion H1.
+apply IHvalue_exists.
+
+
+
+
+
+
+Focus 2.
+eapply Right.
+reflexivity.
+apply IHb.
+induction ar.
+apply_is_ABR.
+
+apply IHar1.
+intros.
+discrimnate.
+reflexivity.
+omega.
+
 Fixpoint insert
