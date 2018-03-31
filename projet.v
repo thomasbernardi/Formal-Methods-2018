@@ -10,13 +10,13 @@ Inductive AB : Set :=
 Inductive is_ABR : AB -> Prop :=
   | Is_Empty : is_ABR Empty
   | Is_Leaf : forall v : Z, is_ABR (Node v Empty Empty)
-  | Node_Both : forall (v vl vr : Z) (al ar sall salr sarl sarr : AB), is_ABR al -> is_ABR ar ->
-    al = (Node vl sall salr) -> ar = (Node vr sarl sarr) -> vl <= v -> v <= vr ->
-    is_ABR (Node v al ar)
-  | Node_Left : forall (v vl : Z) (al sal sar : AB), is_ABR al -> al = (Node vl sal sar) ->
-    vl <= v -> is_ABR (Node v al Empty)
-  | Node_Right : forall (v vr : Z) (ar sal sar : AB), is_ABR ar -> ar = (Node vr sal sar) ->
-    v <= vr -> is_ABR (Node v Empty ar).
+  | Node_Both : forall (v vL vR : Z) (aL aR saLL saLR saRL saRR : AB), is_ABR aL -> is_ABR aR ->
+    aL = (Node vL saLL saLR) -> aR = (Node vR saRL saRR) -> vL <= v -> v <= vR ->
+    is_ABR (Node v aL aR)
+  | Node_Left : forall (v vL : Z) (aL saL saR : AB), is_ABR aL -> aL = (Node vL saL saR) ->
+    vL <= v -> is_ABR (Node v aL Empty)
+  | Node_Right : forall (v vR : Z) (aR saL saR : AB), is_ABR aR -> aR = (Node vR saL saR) ->
+    v <= vR -> is_ABR (Node v Empty aR).
 
 Definition benchmark_01 := (Node 3 (Node 1 (Node 0 Empty Empty) (Node 3 Empty Empty)) (Node 5 Empty Empty)).
 Definition benchmark_02 := (Node 5 (Node 3 (Node 2 Empty Empty) (Node 3 Empty Empty)) (Node 7 (Node 7 Empty Empty) (Node 8 Empty Empty))).
@@ -90,11 +90,11 @@ apply_is_ABR.
 Qed.
 
 Inductive value_exists : AB -> Z -> Prop :=
-  | Curr : forall (v : Z) (a al ar : AB), a = (Node v al ar) -> value_exists a v
-  | Left : forall (v vl : Z) (a al ar : AB), a = (Node v al ar) -> value_exists al vl ->
-    value_exists a vl
-  | Right : forall (v vr : Z) (a al ar : AB), a = (Node v al ar) -> value_exists ar vr ->
-    value_exists a vr.
+  | Curr : forall (v : Z) (a aL aR : AB), a = (Node v aL aR) -> value_exists a v
+  | Left : forall (v vL : Z) (a aL aR : AB), a = (Node v aL aR) -> value_exists aL vL ->
+    value_exists a vL
+  | Right : forall (v vR : Z) (a aL aR : AB), a = (Node v aL aR) -> value_exists aR vR ->
+    value_exists a vR.
 
 Lemma p5 : value_exists benchmark_01 3.
 eapply Curr.
@@ -115,10 +115,10 @@ Require Export Compare_dec.
 Fixpoint search (arbre : AB) (v : Z) : bool :=
   match arbre with
   | Empty => false
-  | Node w al ar =>
+  | Node w aL aR =>
     if Z.eq_dec w v then true
-    else if Z_lt_dec w v then search ar v
-    else search al v
+    else if Z_lt_dec w v then search aR v
+    else search aL v
 end.
 
 Functional Scheme search_ind := Induction for search Sort Prop.
@@ -155,6 +155,32 @@ contradict H0.
 discriminate.
 Qed.
 
+Fixpoint insert (arbre : AB) (v : Z) : AB :=
+  match arbre with
+  | Empty => (Node v Empty Empty)
+  | Node w aL aR =>
+    if Z.eq_dec w v then arbre
+    else if Z_lt_dec w v then (Node w aL (insert aR v))
+    else (Node w (insert aL v) aR)
+end.
+
+Functional Scheme insert_ind := Induction for insert Sort Prop.
+
+Theorem insert_sound : forall (a_in a_out : AB) (v : Z), is_ABR a_in -> a_out = (insert a_in v) ->
+    is_ABR a_out /\ value_exists a_out v /\ (forall (w : Z), value_exists a_in w -> value_exists a_out w).
+intro.
+intro.
+intro.
+intro.
+functional induction (insert a_in v) using insert_ind; intros; split.
+rewrite H0.
+assumption.
+split.
+rewrite H0.
+eapply Curr.
+auto.
+
+
 Theorem search_complete : forall (arbre : AB) (v : Z), is_ABR arbre -> value_exists arbre v -> search arbre v = true.
 
 Proof.
@@ -162,8 +188,7 @@ intro.
 intro.
 intro.
 intro.
-induction H0.
-induction H.
+induction H0; induction H.
 contradict H0.
 intro.
 discriminate H.
@@ -189,28 +214,58 @@ reflexivity.
 elim (Z_lt_dec v v); intro; contradict b; reflexivity.
 rewrite H0.
 simpl.
-elim (Z.eq_dec v vl); intro.
+elim (Z.eq_dec v vL); intro.
 reflexivity.
-elim (Z_lt_dec v vl); intro.
+elim (Z_lt_dec v vL); intro; contradict H0; discriminate.
+rewrite H0.
+simpl.
+elim (Z.eq_dec v vL); intro.
+reflexivity.
+elim (Z_lt_dec v vL); intro.
+inversion H1; contradict H0; rewrite H; discriminate.
+inversion H1; contradict H0; rewrite H; discriminate.
+
+simpl.
+elim (Z.eq_dec v0 vL); intro.
+reflexivity.
+elim (Z_lt_dec v0 vL); intro.
+
 inversion H1.
-apply IHvalue_exists.
-
-
-
-
-
-
-Focus 2.
-eapply Right.
-reflexivity.
-apply IHb.
-induction ar.
-apply_is_ABR.
-
-apply IHar1.
-intros.
-discrimnate.
-reflexivity.
+injection H0; intros.
+rewrite H3 in H11.
+rewrite H7 in H11.
+injection H11; intros.
+contradict H15.
 omega.
+injection H0; intros.
+rewrite H3 in H12.
+rewrite H7 in H12.
 
-Fixpoint insert
+
+(*next goal*)
+injection H0.
+intros.
+rewrite <- H8 in IHvalue_exists.
+apply IHvalue_exists.
+apply H.
+
+
+discriminate.
+apply IHis_ABR2.
+rewrite <- H0.
+rewrite H4.
+injection H0.
+contradict H0.
+injection.
+intros.
+contradict b.
+
+congruence.
+
+apply IHis_ABR2.
+
+
+
+
+
+
