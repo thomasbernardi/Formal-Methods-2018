@@ -59,6 +59,10 @@ Definition env0 (n : nat) : (option Z) :=
   | _ => None
   end.
 
+Lemma eval1 : eval env0 (Plus (Cte 5) (Cte 2)) (Val 7).
+eapply EPlus.
+apply ECte.
+apply ECte.
 Lemma eval0 : eval env0 (Mult (Plus (Cte 4) (Var 0)) (Moins (Cte 9) (Var 0))) (Val 42).
   eapply EMult.
   eapply EPlus.

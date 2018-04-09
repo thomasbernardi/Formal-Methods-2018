@@ -28,7 +28,7 @@ Proof.
   apply (is_perm_trans (1::2::nil) ((2::nil) ++ 1::nil) (2::1::nil));
     [ apply is_perm_append | simpl ].
   apply is_perm_refl.
-Save.
+Qed.
 
 Ltac is_perm_tac :=
   repeat
@@ -42,7 +42,7 @@ Ltac is_perm_tac :=
 Lemma is_perm_ex2 : is_perm (1::2::3::nil) (3::2::1::nil).
 Proof.
   is_perm_tac.
-Save.
+Qed.
 
 Inductive is_sorted : list nat -> Prop :=
 | is_sorted_nil : is_sorted nil
@@ -57,7 +57,7 @@ Proof.
   apply is_sorted_cons; auto.
   apply is_sorted_cons; auto.
   apply is_sorted_sing.
-Save.
+Qed.
 
 (* Automation *)
 
@@ -68,17 +68,17 @@ Ltac is_sorted_tac :=
 Lemma is_sorted_ex2 : is_sorted (1::2::3::4::5::nil).
 Proof.
   is_sorted_tac.
-Save.
+Qed.
 
 Lemma is_sorted_ex3 : is_sorted (1::nil).
 Proof.
   is_sorted_tac.
-Save.
+Qed.
 
 Lemma is_sorted_ex4 : is_sorted nil.
 Proof.
   is_sorted_tac.
-Save.
+Qed.
 
 (* Sorting function: insertion sort *)
 
@@ -101,7 +101,7 @@ Fixpoint isort (l : list nat) : list nat :=
 Lemma isort_ex1 : isort (5::4::3::2::1::nil) = 1::2::3::4::5::nil.
 Proof.
   simpl; reflexivity.
-Save.
+Qed.
 
 (* Correctness proof *)
 
@@ -111,7 +111,7 @@ Proof.
   intros; apply is_perm_trans with (x2::l ++ x1::nil);
     [ apply is_perm_append | apply is_perm_cons; 
       apply is_perm_sym; apply is_perm_append ].
-Save.
+Qed.
 
 Lemma insert_is_perm : forall (x : nat) (l : list nat),
   is_perm (x::l) (insert x l).
@@ -122,8 +122,9 @@ Proof.
   apply is_perm_refl.
   apply is_perm_trans with (a::x::l);
     [ apply head_is_perm | apply is_perm_cons; auto ].
-Save.
+Qed.
 
+Require Export Omega.
 Lemma insert_is_sorted : forall (x : nat) (l : list nat),
   is_sorted l -> is_sorted (insert x l).
 Proof.
@@ -132,10 +133,26 @@ Proof.
   intros; elim (le_dec x n); simpl; intros; auto.
   apply is_sorted_cons; [ auto | apply is_sorted_sing ].
   apply is_sorted_cons; [ omega | apply is_sorted_sing ].
-  intros n m; elim (le_dec x m); intros; elim (le_dec x n); intros;
-    repeat (apply is_sorted_cons; auto); omega.
-Save.
 
+  intros n m; elim (le_dec x m); intros; elim (le_dec x n); intros.
+    repeat (apply is_sorted_cons; auto); omega.
+    repeat (apply is_sorted_cons; auto); omega.
+    repeat (apply is_sorted_cons; auto); omega.
+    apply is_sorted_cons.
+    auto.
+
+    auto.
+
+
+ (apply is_sorted_cons; auto).
+omega.
+apply is_sorted_cons.
+Qed.
+intros n m.
+elim (le_dec x m).
+intros.
+elim (le_dec x n).
+intros.
 Lemma isort_correct : forall (l l' : list nat),
   l' = isort l -> is_perm l l' /\ is_sorted l'.
 Proof.
@@ -145,4 +162,4 @@ Proof.
   apply is_perm_trans with (a::(isort l));
     [ apply is_perm_cons; auto | apply insert_is_perm ].
   apply insert_is_sorted; auto.
-Save.
+Qed.

@@ -30,6 +30,17 @@ apply IHP.
 assumption.
 Qed.
 
+Theorem even_complete : forall (n : nat) (v : Prop), is_even n -> (even n) = True.
+intro.
+intro.
+intro.
+induction H.
+simpl.
+reflexivity.
+simpl.
+assumption.
+Qed.
+
 Inductive is_fact : nat -> nat -> Prop :=
 | is_fact_1 : is_fact 0 1
 | is_fact_S : forall (n : nat) (r : nat), is_fact n r -> is_fact (S n) ((S n) * r).
@@ -114,25 +125,6 @@ Functional Scheme sort_ind := Induction for sort Sort Prop.
 Functional Scheme insert_ind := Induction for insert Sort Prop.
 
 Require Export Omega.
-
-Theorem sort_sound :
-  forall (l : list nat) (ls : list nat), sort l = ls -> (is_perm l ls) /\ (sorted ls).
-
-Proof.
-intro.
-functional induction (sort l) using sort_ind; intros.
-rewrite <- H.
-split.
-apply perm_ref.
-reflexivity.
-apply sorted_empty.
-rewrite <- H.
-split.
-apply (perm_tran (h::t) (h::sort t) (insert h (sort t))).
-apply perm_ind.
-apply IHl0.
-reflexivity.
-
 Lemma perm_insert : forall (a : nat) (l : list nat), is_perm (a::l) (insert a l).
 intros.
 functional induction (insert a l) using insert_ind.
@@ -150,9 +142,6 @@ apply perm_base.
 apply perm_ind.
 apply IHl0.
 Qed.
-
-apply perm_insert.
-
 
 Lemma sort_insert : forall (a : nat) (l : list nat), sorted l -> sorted (insert a l).
 intros.
@@ -200,6 +189,24 @@ apply sorted_rec.
 auto.
 auto.
 Qed.
+Theorem sort_sound :
+  forall (l : list nat) (ls : list nat), sort l = ls -> (is_perm l ls) /\ (sorted ls).
+
+Proof.
+intro.
+functional induction (sort l) using sort_ind; intros.
+rewrite <- H.
+split.
+apply perm_ref.
+reflexivity.
+apply sorted_empty.
+rewrite <- H.
+split.
+apply (perm_tran (h::t) (h::sort t) (insert h (sort t))).
+apply perm_ind.
+apply IHl0.
+reflexivity.
+apply perm_insert.
 apply sort_insert.
 apply IHl0.
 reflexivity.

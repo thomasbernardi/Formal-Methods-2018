@@ -97,14 +97,46 @@ Inductive eval (env : context) : expr -> value -> Prop :=
     eval env e1 (ValB b) -> eval env (Div e1 e2) Err
   | EDiv_ErrBR : forall (e1 e2 : expr) (v : Z) (b : bool),
     eval env e1 (ValZ v) -> eval env e2 (ValB b) -> eval env (Div e1 e2) Err
-  | EVrai : eval env True (ValB true)
-  | EFaux : eval env False (ValB false)
+  | ETrue : eval env True (ValB true)
+  | EFalse : eval env False (ValB false)
   | ENon : forall (e : expr) (b nb : bool), eval env e (ValB b) -> 
     nb = negb b -> eval env (Non e) (ValB nb)
   | ENon_ErrDne : forall e : expr, eval env e Err -> eval env (Non e) Err
-  | ENon_ErrZ : forall (e : expr) (v : Z), eval env e (ValZ v) -> eval env (Non e) Err.
+  | ENon_ErrZ : forall (e : expr) (v : Z), eval env e (ValZ v) -> eval env (Non e) Err
+  | EAnd : forall (e1 e2 : expr) (b1 b2 b: bool), eval env e1 (ValB b1) ->
+    eval env e2 (ValB b2) -> b = (andb b1 b2) -> eval env (And e1 e2) (ValB b)
+  | EAnd_ErrL : forall (e1 e2 : expr), eval env e1 Err -> eval env (And e1 e2) Err
+  | EAnd_ErrR : forall (e1 e2 : expr) (b : bool),
+    eval env e1 (ValB b) -> eval env e2 Err -> eval env (And e1 e2) Err
+  | EAnd_ErrZL : forall (e1 e2 : expr) (v : Z),
+    eval env e1 (ValZ v) -> eval env (And e1 e2) Err
+  | EAnd_ErrZR : forall (e1 e2 : expr) (b : bool) (v : Z),
+    eval env e1 (ValB b) -> eval env e2 (ValZ v) -> eval env (And e1 e2) Err
+  | EOr : forall (e1 e2 : expr) (b1 b2 b : bool), eval env e1 (ValB b1) -> 
+    eval env e2 (ValB b2) -> b = (orb b1 b2) -> eval env (Or e1 e2) (ValB b)
+  | EOr_ErrL : forall (e1 e2 : expr), eval env e1 Err -> eval env (Or e1 e2) Err
+  | EOr_ErrR : forall (e1 e2 : expr) (b : bool),
+    eval env e1 (ValB b) -> eval env e2 Err -> eval env (Or e1 e2) Err
+  | EOr_ErrZL : forall (e1 e2 : expr) (v : Z),
+    eval env e1 (ValZ v) -> eval env (Or e1 e2) Err
+  | EOr_ErrZR : forall (e1 e2 : expr) (b : bool) (v : Z),
+    eval env e1 (ValB b) -> eval env e2 (ValZ v) -> eval env (Or e1 e2) Err.
 
+Open Scope nat_scope.
 
+Lemma eval1 : eval ((1, (EValZ 1))::(2, (EValZ 3))::(3, (EValB true))::nil) 
+    (Plus (Cte 5) (Cte 2)) (ValZ 7).
+eapply EPlus.
+apply ECte.
+apply ECte.
+auto.
+Qed.
+apply EOr.
+apply EAnd.
+apply EOrL.
+apply ETrue.
+apply ETrue.
+Qed.
 
 
 
