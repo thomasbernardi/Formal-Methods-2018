@@ -312,62 +312,142 @@ end.
 
 Functional Scheme insert_ind := Induction for insert Sort Prop.
 
-Lemma insert_is_ABR : forall (v : Z) (a_in a_out : AB), is_ABR a_in None None ->
-    a_out = (insert a_in v) -> is_ABR a_out None None.
-intro.
-intro.
+Lemma combine : forall (vL vR : Z) (arbre : AB), is_ABR arbre None (Some vR) ->
+    is_ABR arbre (Some vL) None -> vL <= vR -> is_ABR arbre (Some vL) (Some vR).
+intros.
+induction arbre.
+apply_is_ABR.
+inversion H0.
+omega.
+inversion H.
+omega.
+inversion H0.
+assumption.
+inversion H.
+assumption.
+apply_is_ABR.
+Qed.
+
+Lemma insert_right : forall (v vR : Z) (arbre : AB), is_ABR arbre None (Some vR) ->
+    is_ABR (insert arbre v) None None -> v <= vR -> is_ABR (insert arbre v) None (Some vR).
+intros.
+functional induction (insert arbre v) using insert_ind; intros.
+assumption.
+apply_is_ABR.
+inversion H.
+omega.
+inversion H0.
+assumption.
+inversion H.
+assumption.
+apply_is_ABR.
+inversion H.
+inversion H.
+assumption.
+inversion H0.
+apply combine.
+apply IHa.
+eapply both_upper.
+inversion H.
+apply H13.
+eapply both_option_reduce.
+apply H6.
+assumption.
+assumption.
+omega.
+apply_is_ABR.
+Qed.
+
+Lemma insert_left : forall (v vL : Z) (arbre : AB), is_ABR arbre (Some vL) None ->
+    is_ABR (insert arbre v) None None -> v > vL -> is_ABR (insert arbre v) (Some vL) None.
+intros.
+functional induction (insert arbre v) using insert_ind; intros.
+assumption.
+apply_is_ABR.
+apply combine.
+inversion H0.
+assumption.
+apply IHa.
+inversion H.
+eapply both_lower.
+apply H7.
+inversion H0.
+eapply both_option_reduce.
+apply H4.
+omega.
+omega.
+inversion H.
+assumption.
+apply_is_ABR.
+inversion H.
+omega.
+inversion H.
+assumption.
+inversion H0.
+assumption.
+apply_is_ABR.
+Qed.
+
+Lemma insert_is_ABR : forall (v : Z) (a_in : AB), is_ABR a_in None None ->
+    is_ABR (insert a_in v) None None.
 intro.
 intro.
 intro.
 functional induction (insert a_in v) using insert_ind; intros.
-rewrite e.
 apply_is_ABR.
 inversion H.
 assumption.
 inversion H.
 assumption.
+apply_is_ABR.
+inversion H.
+eapply insert_right; auto.
+apply IHa.
+eapply both_option_reduce.
+apply H2.
+inversion H.
+assumption.
+inversion H.
+apply_is_ABR.
+apply insert_left; auto.
+apply IHa.
+eapply both_option_reduce.
+apply H4.
+omega.
+apply_is_ABR.
+Qed.
+
+Lemma insert_new_value : forall (v : Z) (a_in : AB), is_ABR a_in None None ->
+    value_exists (insert a_in v) v.
+intros.
+functional induction (insert a_in v) using insert_ind; intros.
+apply Curr.
+apply Left.
+apply IHa.
+inversion H.
+eapply both_option_reduce.
+apply H2.
+apply Right.
+apply IHa.
+inversion H.
+eapply both_option_reduce.
+apply H4.
+apply Curr.
+Qed.
+
+Lemma insert_no_loss : forall (v : Z) (a_in : AB), is_ABR a_in None None ->
+    (forall (w : Z), value_exists a_in w -> value_exists (insert a_in v) w).
+intros.
+functional induction (insert a_in v) using insert_ind; intros.
+assumption.
+apply Left.
 apply IHa.
 inversion H.
 eapply both_option_reduce.
 apply H3.
-rewrite H0.
-
-
-
-Lemma left_limit : forall (arbre : AB) (v vL vR : Z), is_ABR arbre (Some vL) None ->
-    value_exists arbre v -> vL <= v.
-intros.
 induction H0.
-inversion H.
-omega.
-apply IHvalue_exists.
-inversion H.
-eapply both_lower.
-apply H6.
-apply IHvalue_exists.
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-Lemma limits_inherit : forall (aL aR : AB) (v vL : Z), is_ABR (Node v aL aR) (Some vL) None ->
-    is_ABR aL (Some vL) None.
-intros.
-induction aL.
-apply_is_ABR.
-inversion H.
-inversion H5.
-omega.
 
 
 
