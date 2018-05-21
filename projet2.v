@@ -13,19 +13,19 @@ Inductive is_ABR : AB -> (option Z) -> (option Z) -> Prop :=
   | Empty_N : is_ABR Empty None None
   | Empty_L : forall (vL : Z), is_ABR Empty (Some vL) None
   | Empty_U : forall (vR : Z), is_ABR Empty None (Some vR)
-  | Empty_B : forall (vL vR : Z), vL <= vR -> is_ABR Empty (Some vL) (Some vR)
+  | Empty_B : forall (vL vR : Z), vL < vR -> is_ABR Empty (Some vL) (Some vR)
   | No_Limits : forall (v : Z) (aL aR : AB), is_ABR aL None (Some v) -> is_ABR aR (Some v) None -> 
     is_ABR (Node v aL aR) None None
   | Lower : forall (v vL : Z) (aL aR : AB), v > vL -> is_ABR aL (Some vL) (Some v) ->
     is_ABR aR (Some v) None -> is_ABR (Node v aL aR) (Some vL) None
   | Upper : forall (v vR : Z) (aL aR : AB), v <= vR -> is_ABR aL None (Some v) ->
     is_ABR aR (Some v) (Some vR) -> is_ABR (Node v aL aR) None (Some vR)
-  | Both : forall (v vL vR : Z) (aL aR : AB), v > vL -> v <= vR -> is_ABR aL (Some vL) (Some v) ->
+  | Both : forall (v vL vR : Z) (aL aR : AB), v > vL -> v < vR -> is_ABR aL (Some vL) (Some v) ->
     is_ABR aR (Some v) (Some vR) -> is_ABR (Node v aL aR) (Some vL) (Some vR).
 
-Definition benchmark_01 := (Node 3 (Node 1 (Node 0 Empty Empty) (Node 3 Empty Empty)) (Node 5 Empty Empty)).
-Definition benchmark_02 := (Node 5 (Node 3 (Node 2 Empty Empty) (Node 4 Empty Empty)) (Node 7 (Node 7 Empty Empty) (Node 8 Empty Empty))).
-Definition benchmark_03 := (Node 15 (Node 12 (Node 11 (Node 5 Empty Empty) Empty) (Node 14 (Node 13 Empty (Node 14 Empty Empty)) (Node 15 Empty Empty))) (Node 18 (Node 17 Empty Empty) (Node 19 Empty (Node 20 Empty Empty)))).
+Definition benchmark_01 := (Node 3 (Node 1 (Node 0 Empty Empty) (Node 2 Empty Empty)) (Node 5 Empty Empty)).
+Definition benchmark_02 := (Node 5 (Node 3 (Node 2 Empty Empty) (Node 4 Empty Empty)) (Node 7 (Node 6 Empty Empty) (Node 8 Empty Empty))).
+Definition benchmark_03 := (Node 16 (Node 10 (Node 9 (Node 5 Empty Empty) Empty) (Node 14 (Node 11 Empty (Node 12 Empty Empty)) (Node 15 Empty Empty))) (Node 18 (Node 17 Empty Empty) (Node 19 Empty (Node 20 Empty Empty)))).
 
 Lemma p1 : is_ABR benchmark_01 None None.
 apply No_Limits.
@@ -48,6 +48,7 @@ omega.
 apply Empty_B.
 omega.
 apply Empty_L.
+Qed.
 
 Ltac apply_is_ABR :=
   repeat
@@ -142,7 +143,7 @@ contradict H0.
 auto.
 Qed.
 
-Lemma limits : forall (arbre : AB) (vL vR : Z), is_ABR arbre (Some vL) (Some vR) -> vL <= vR.
+Lemma limits : forall (arbre : AB) (vL vR : Z), is_ABR arbre (Some vL) (Some vR) -> vL < vR.
 intros.
 inversion H.
 assumption.
@@ -156,7 +157,7 @@ induction arbre.
 apply_is_ABR.
 inversion H.
 omega.
-inversion H0.
+inversion H.
 omega.
 inversion H.
 assumption.
@@ -187,12 +188,13 @@ apply_is_ABR.
 Qed.
 
 Lemma left_less : forall (aL aR : AB) (v vL : Z), is_ABR (Node v aL aR) None None -> 
-    value_exists aL vL -> vL <= v.
+    value_exists aL vL -> vL < v.
 intros.
 induction H0.
 inversion H.
 inversion H2.
-omega.
+eapply limits.
+apply H11.
 apply IHvalue_exists.
 inversion H.
 apply_is_ABR.
@@ -284,6 +286,8 @@ inversion H.
 eapply both_option_reduce.
 apply H3.
 contradict b0.
+cut (vL < v).
+omega.
 eapply left_less.
 apply H.
 apply H0.
@@ -306,21 +310,22 @@ Fixpoint insert (arbre : AB) (v : Z) : AB :=
   | Empty => (Node v Empty Empty)
   | Node w aL aR =>
     if Z.eq_dec v w then arbre
-    else if Z_le_dec v w then (Node w (insert aL v) aR)
+    else if Z_lt_dec v w then (Node w (insert aL v) aR)
     else (Node w aL (insert aR v))
 end.
 
 Functional Scheme insert_ind := Induction for insert Sort Prop.
 
 Lemma combine : forall (vL vR : Z) (arbre : AB), is_ABR arbre None (Some vR) ->
-    is_ABR arbre (Some vL) None -> vL <= vR -> is_ABR arbre (Some vL) (Some vR).
+    is_ABR arbre (Some vL) None -> vL < vR -> is_ABR arbre (Some vL) (Some vR).
 intros.
 induction arbre.
 apply_is_ABR.
 inversion H0.
 omega.
 inversion H.
-omega.
+eapply limits.
+apply H8.
 inversion H0.
 assumption.
 inversion H.
@@ -329,7 +334,7 @@ apply_is_ABR.
 Qed.
 
 Lemma insert_right : forall (v vR : Z) (arbre : AB), is_ABR arbre None (Some vR) ->
-    is_ABR (insert arbre v) None None -> v <= vR -> is_ABR (insert arbre v) None (Some vR).
+    is_ABR (insert arbre v) None None -> v < vR -> is_ABR (insert arbre v) None (Some vR).
 intros.
 functional induction (insert arbre v) using insert_ind; intros.
 assumption.
@@ -505,8 +510,8 @@ end.
 Functional Scheme find_max_ind := Induction for find_max Sort Prop.
 Functional Scheme delete_ind := Induction for delete Sort Prop.
 
-Lemma max_geq : forall (arbre : AB) (x vR : Z) (L : option Z), is_ABR arbre L (Some vR) ->
-    (find_max arbre) = (Some x) -> x <= vR.
+Lemma max_gt : forall (arbre : AB) (x vR : Z) (L : option Z), is_ABR arbre L (Some vR) ->
+    (find_max arbre) = (Some x) -> x < vR.
 intros.
 functional induction (find_max arbre) using find_max_ind.
 apply IHo.
@@ -519,17 +524,16 @@ apply H9.
 eapply left_loosen.
 eapply both_lower.
 apply H9.
-eapply limits.
-apply H8.
-inversion H9.
-cut (vL <= x0).
-omega.
-eapply limits.
-apply H8.
+cut (vL < x0); omega.
+cut (vL < x0); omega.
 apply H0.
 inversion H0.
 rewrite <- H2.
-inversion H; omega.
+inversion H.
+eapply limits.
+apply H9.
+eapply limits.
+apply H10.
 inversion H0.
 Qed.
 
@@ -541,6 +545,8 @@ apply IHo.
 inversion H.
 eapply left_loosen.
 apply H8.
+cut (vL < x0).
+omega.
 eapply limits.
 apply H7.
 apply combine.
@@ -549,9 +555,11 @@ apply H9.
 eapply left_loosen.
 eapply both_lower.
 apply H9.
+cut (vL < x0).
+omega.
 eapply limits.
 apply H8.
-cut (vL <= x0).
+cut (vL < x0).
 omega.
 eapply limits.
 apply H8.
@@ -562,14 +570,12 @@ inversion H; omega.
 inversion H0.
 Qed.
 
-
-
 Lemma max_limit : forall (arbre : AB) (x : Z), is_ABR arbre None None -> 
-    (find_max arbre) = (Some x) -> is_ABR arbre None (Some x).
+    (find_max arbre) = (Some x) -> is_ABR arbre None (Some (x + 1)).
 intros.
 functional induction (find_max arbre) using find_max_ind.
 apply_is_ABR.
-cut (is_ABR (Node _x0 _x1 _x2) None (Some x)).
+cut (is_ABR (Node _x0 _x1 _x2) None (Some (x + 1))).
 intros.
 inversion H1.
 inversion H.
@@ -585,9 +591,17 @@ auto.
 inversion H.
 inversion H5.
 omega.
-cut (is_ABR (Node _x0 _x1 _x2) None (Some x)).
+cut (is_ABR (Node _x0 _x1 _x2) None (Some (x + 1))).
 intros.
 inversion H1.
+eapply limits.
+apply combine.
+eapply right_loosen.
+eapply both_upper.
+apply H8.
+omega.
+eapply both_lower.
+apply H8.
 eapply limits.
 apply H8.
 apply IHo.
@@ -601,7 +615,7 @@ auto.
 inversion H.
 inversion H5.
 apply combine.
-cut (is_ABR (Node _x0 _x1 _x2) None (Some x)).
+cut (is_ABR (Node _x0 _x1 _x2) None (Some (x + 1))).
 intros.
 inversion H13.
 eapply both_upper.
@@ -612,10 +626,11 @@ eapply both_option_reduce.
 apply H5.
 auto.
 apply H12.
-cut (is_ABR (Node _x0 _x1 _x2) None (Some x)).
+cut (is_ABR (Node _x0 _x1 _x2) None (Some (x + 1))).
 intros.
 inversion H13.
-omega.
+eapply limits.
+apply H20.
 apply IHo.
 inversion H.
 eapply both_option_reduce.
@@ -633,7 +648,9 @@ Lemma delete_right : forall (arbre : AB) (v vR : Z), is_ABR arbre None (Some vR)
     is_ABR (delete arbre v) None None -> is_ABR (delete arbre v) None (Some vR).
 intros.
 functional induction (delete arbre v) using delete_ind; apply_is_ABR.
-eapply max_geq.
+cut (x < vR).
+omega.
+eapply max_gt.
 inversion H.
 eapply right_loosen.
 apply H6.
@@ -656,7 +673,9 @@ apply H15.
 eapply left_loosen.
 eapply both_lower.
 apply H15.
-eapply max_geq.
+cut (x < w).
+omega.
+eapply max_gt.
 apply H6.
 auto.
 inversion H0.
@@ -675,7 +694,7 @@ inversion H7.
 auto.
 inversion H.
 inversion H6.
-cut (w <= vR).
+cut (w < vR).
 omega.
 eapply limits.
 apply H7.
@@ -688,11 +707,13 @@ apply combine.
 eapply right_loosen.
 eapply both_upper.
 apply H14.
+cut (w < vR).
+omega.
 eapply limits.
 apply H7.
 eapply both_lower.
 apply H14.
-cut (w <= vR).
+cut (w < vR).
 omega.
 eapply limits.
 apply H7.
@@ -753,7 +774,9 @@ intro.
 inversion H.
 inversion H8.
 omega.
-eapply max_geq.
+cut (x < w).
+omega.
+eapply max_gt.
 inversion H.
 apply H6.
 auto.
@@ -765,12 +788,14 @@ apply H13.
 eapply left_loosen.
 eapply both_lower.
 apply H13.
-eapply max_geq.
-apply H6.
-auto.
-cut (x <= w).
+cut (x < w).
 omega.
-eapply max_geq.
+eapply max_gt.
+apply H6.
+auto.
+cut (x < w).
+omega.
+eapply max_gt.
 apply H6.
 auto.
 inversion H.
@@ -779,7 +804,7 @@ auto.
 inversion H.
 inversion H7.
 auto.
-cut (vL <= w).
+cut (vL < w).
 omega.
 eapply limits.
 apply H6.
@@ -791,9 +816,11 @@ apply H13.
 eapply left_loosen.
 eapply both_lower.
 apply H13.
+cut (vL < w).
+omega.
 eapply limits.
 apply H6.
-cut (vL <= w).
+cut (vL < w).
 omega.
 eapply limits.
 apply H6.
@@ -813,6 +840,8 @@ apply H16.
 inversion H.
 eapply left_loosen.
 apply H7.
+cut (vL < w).
+omega.
 eapply limits.
 apply H6.
 inversion H.
@@ -839,424 +868,424 @@ inversion H0.
 auto.
 Qed.
 
-
+Lemma max_deleted_limit : forall (arbre : AB) (v : Z), is_ABR arbre None None ->
+    (find_max arbre) = (Some v) -> is_ABR (delete arbre v) None (Some v).
+intro.
+intro.
+intro.
+functional induction (find_max arbre) using find_max_ind; intros.
+inversion H.
+unfold delete at 1.
+elim (Z.eq_dec x v); intros.
+contradict a.
+cut (x < v).
+omega.
+cut (_x0 < v + 1).
+intros.
+inversion H5.
+omega.
+cut (is_ABR (Node _x0 _x1 _x2) None (Some (v + 1))).
+intros.
+inversion H6.
+eapply limits.
+apply H13.
+eapply max_limit.
+eapply both_option_reduce.
+apply H5.
+auto.
+elim (Z_lt_dec v x); intros.
+contradict a.
+cut (x < v).
+omega.
+cut (_x0 < v + 1).
+intros.
+inversion H5.
+omega.
+cut (is_ABR (Node _x0 _x1 _x2) None (Some (v + 1))).
+intros.
+inversion H6.
+eapply limits.
+apply H13.
+eapply max_limit.
+eapply both_option_reduce.
+apply H5.
+auto.
+apply_is_ABR.
+fold (delete (Node _x0 _x1 _x2) v).
+apply combine.
+apply IHo.
+inversion H.
+eapply both_option_reduce.
+apply H10.
+apply H0.
+eapply delete_left.
+apply H5.
+eapply both_option_reduce.
+apply IHo.
+inversion H.
+eapply both_option_reduce.
+apply H10.
+auto.
+omega.
+unfold delete.
+elim (Z.eq_dec x v); intros.
+inversion H.
+inversion H0.
+case_eq _x; intros.
+rewrite <- H6.
+rewrite <- H7.
+auto.
+rewrite <- H6.
+rewrite <- H7.
+auto.
+contradict b.
+inversion H0.
+reflexivity.
+inversion H0.
+Qed.
 
 Lemma delete_is_ABR : forall (arbre : AB) (v : Z), is_ABR arbre None None ->
     is_ABR (delete arbre v) None None.
 intros.
 functional induction (delete arbre v) using delete_ind; apply_is_ABR.
+inversion H.
+eapply max_deleted_limit.
+eapply both_option_reduce.
+apply H2.
+auto.
+inversion H.
+cut (x < w).
+inversion H4.
+omega.
+eapply max_gt.
+apply H2.
+auto.
+inversion H.
+inversion H4.
+apply combine.
+eapply both_upper.
+apply H10.
+eapply left_loosen.
+eapply both_lower.
+apply H10.
+cut (x < w).
+omega.
+eapply max_gt.
+apply H2.
+auto.
+cut (x < w).
+omega.
+eapply max_gt.
+apply H2.
+auto.
+inversion H.
+inversion H4.
+auto.
+inversion H.
+inversion H4.
+eapply both_upper.
+apply H10.
+inversion H.
+inversion H4.
+auto.
+inversion H.
+inversion H2.
+auto.
+inversion H.
+inversion H2.
+eapply both_lower.
+apply H11.
+inversion H.
+eapply both_option_reduce.
+apply H4.
 eapply delete_right.
-apply_is_ABR.
-cut (is_ABR (Node _x0 _x1 _x2) None (Some x)).
+inversion H.
+auto.
+apply IHa.
+inversion H.
+eapply both_option_reduce.
+apply H2.
+inversion H.
+auto.
+inversion H.
+auto.
+eapply delete_left.
+inversion H.
+auto.
+apply IHa.
+inversion H.
+eapply both_option_reduce.
+apply H4.
+Qed.
+
+Lemma max_exists : forall (v : Z) (arbre : AB), is_ABR arbre None None ->
+    (find_max arbre) = (Some v) -> value_exists arbre v.
 intros.
+functional induction (find_max arbre) using find_max_ind.
+apply Right.
+apply IHo.
+inversion H.
+eapply both_option_reduce.
+apply H5.
+auto.
 inversion H0.
+rewrite <- H2.
+apply Curr.
+inversion H0.
+Qed.
+
+Lemma left_DNE : forall (v : Z) (arbre : AB), is_ABR arbre (Some v) None ->
+    ~ (value_exists arbre v).
+intros.
+intro.
+induction H0.
+inversion H.
+cut (v < v).
+omega.
+eapply limits.
+apply H5.
+apply IHvalue_exists.
+inversion H.
+eapply both_lower.
+apply H6.
+apply IHvalue_exists.
+inversion H.
+eapply left_loosen.
+apply H7.
+cut (vR < v).
+omega.
+eapply limits.
+apply H6.
+Qed.
+
+Lemma right_DNE : forall (v : Z) (arbre : AB), is_ABR arbre None (Some v) ->
+    ~ (value_exists arbre v).
+intros.
+intro.
+induction H0.
+inversion H.
+cut (v < v).
+omega.
+eapply limits.
+apply H6.
+apply IHvalue_exists.
+inversion H.
+eapply right_loosen.
+apply H6.
+cut (v < vL).
+omega.
 eapply limits.
 apply H7.
-eapply max_limit.
+apply IHvalue_exists.
 inversion H.
-eapply both_option_reduce.
-apply H2.
-apply e3.
-inversion H.
-inversion H2.
-apply H10.
-inversion H.
-inversion H2.
-apply combine.
-cut (is_ABR (Node _x0 _x1 _x2) None (Some x)).
+eapply both_upper.
+apply H7.
+Qed.
+
+Lemma ind_DNE : forall (v x : Z) (aL aR : AB), ~(value_exists aL v) -> ~(value_exists aR v) ->
+    x <> v -> ~(value_exists (Node x aL aR) v).
 intros.
-inversion H12.
-eapply both_upper.
-apply H19.
-eapply max_limit.
-eapply both_option_reduce.
-apply H2.
+intro.
+inversion H2.
+contradict H3.
 auto.
-eapply both_lower.
-apply H11.
-cut (is_ABR (Node _x0 _x1 _x2) None (Some x)).
+contradict H7.
+auto.
+contradict H7.
+auto.
+Qed.
+
+Lemma combined_DNE : forall (v x : Z) (aL aR : AB), is_ABR (Node v aL aR) None None ->
+    x <> v -> ~ (value_exists (Node x aL aR) v).
 intros.
-inversion H12.
-omega.
-eapply max_limit.
-inversion H.
-eapply both_option_reduce.
-apply H14.
+intro.
+inversion H1.
+contradict H2.
 auto.
-apply IHa.
+contradict H6.
+eapply right_DNE.
 inversion H.
-eapply both_option_reduce.
-apply H2.
-inversion H.
-inversion H4.
-cut (x <= w).
-omega.
-eapply max_geq.
-apply H2.
 auto.
+contradict H6.
+eapply left_DNE.
 inversion H.
-inversion H4.
-apply combine.
-eapply both_upper.
-apply H10.
-eapply left_loosen.
-eapply both_lower.
-apply H10.
-eapply max_geq.
-apply H2.
 auto.
-cut (x <= w).
-omega.
-eapply max_geq.
-apply H2.
+Qed.
+
+Lemma benchmark_test : value_exists benchmark_03 10.
+eapply search_sound.
+apply_is_ABR.
+simpl.
 auto.
-inversion H.
-inversion H4.
-apply H11.
-inversion H.
-inversion H4.
-eapply both_upper.
-apply H10.
-inversion H.
-inversion H4.
-apply H11.
-inversion H.
-inversion H2.
-apply H10.
-inversion H.
-inversion H2.
-eapply both_lower.
-apply H11.
-inversion H.
-eapply both_option_reduce.
-apply H4.
+Qed.
+
+Lemma berchmark_test_delete : search (delete benchmark_03 10) 10 = false.
+simpl.
+auto.
+Qed.
+
+Lemma deleted_DNE : forall (v : Z) (arbre : AB), is_ABR arbre None None -> 
+    ~ (value_exists (delete arbre v) v).
+intros.
+functional induction (delete arbre v) using delete_ind; intros.
+eapply combined_DNE.
+apply_is_ABR.
 eapply delete_right.
 inversion H.
+auto.
+eapply delete_is_ABR.
+inversion H.
+eapply both_option_reduce.
 apply H2.
+inversion H.
+inversion H4.
+auto.
+inversion H.
+inversion H4.
+auto.
+inversion H.
+inversion H4.
+auto.
+inversion H.
+cut (x < w).
+omega.
+eapply max_gt.
+apply H2.
+auto.
+eapply left_DNE.
+inversion H.
+auto.
+eapply right_DNE.
+inversion H.
+auto.
+eapply left_DNE.
+inversion H.
+auto.
+eapply ind_DNE.
 apply IHa.
 inversion H.
 eapply both_option_reduce.
 apply H2.
+eapply left_DNE.
 inversion H.
+eapply left_loosen.
+apply H4.
+omega.
 auto.
+eapply ind_DNE.
+eapply right_DNE.
 inversion H.
-auto.
-eapply delete_left.
-inversion H.
-auto.
+eapply right_loosen.
+apply H2.
+omega.
 apply IHa.
 inversion H.
 eapply both_option_reduce.
 apply H4.
-Qed.
-
-Fixpoint delete_all (arbre : AB) (v : Z) {struct arbre} : AB :=
-  let del_one := (delete arbre v) in
-  if (search del_one v) then 
-  match del_one with
-  | Empty => Empty
-  | (Node x aL aR) => (delete_all del_one v) 
-end
-  else del_one.
-
-Fixpoint leftmost_value (v : Z) (aL : AB) : Z :=
-  match aL with
-  | Empty => v
-  | (Node vL aLL aLR) => leftmost_value vL aLL
-end.
-
-Fixpoint delete_leftmost (arbre : AB) : AB :=
-  match arbre with
-  | Empty => Empty
-  | (Node v aL aR) =>
-    match aL with
-    | Empty => aR
-    | (Node vL aLL aLR) => (Node v (delete_leftmost aL) aR)
-  end
-end.
-
-Fixpoint 
-delete (arbre : AB) (v : Z) : AB :=
-  match arbre with
-  | Empty => Empty
-  | (Node w aL aR) =>
-    let del_1 := match aL with
-    | Empty =>
-      match aR with
-      | Empty =>
-        if Z.eq_dec w v then Empty
-        else arbre
-      | (Node vR aRL aRR) =>
-        if Z.eq_dec w v then aR
-        else (Node w Empty (delete aR v))
-    end
-    | (Node vL aLL aLR) =>
-      match aR with
-      | Empty =>
-        if Z.eq_dec w v then aL
-        else (Node w (delete aL v) Empty)
-      | (Node vR aRL aRR) =>
-        if Z.eq_dec w v then (Node (leftmost_value vR aRL) aL (delete_leftmost aR) )
-        else if Z_le_dec w v then (Node w (delete aL v) aR)
-        else (Node w aL (delete aR v))
-    end
-  end
-    in if (search del_1 v) then (delete del_1 v) else del_1
-end.
-Functional Scheme lval_ind := Induction for leftmost_value Sort Prop.
-Functional Scheme ldel_ind := Induction for delete_leftmost Sort Prop.
-Functional Scheme delete_ind := Induction for delete Sort Prop.
-
-Lemma limit_inherit_left : forall (v : Z) (aL aR : AB) (L R : option Z), is_ABR (Node v aL aR) L R ->
-    is_ABR aL L (Some v).
-intros.
-inversion H; assumption.
-Qed.
-
-Lemma delete_left : forall (vR : Z) (arbre : AB) (L R : option Z), is_ABR arbre L (Some vR) ->
-    is_ABR (delete_leftmost arbre) L R -> is_ABR (delete_leftmost arbre) L (Some vR).
-intros.
-functional induction (delete_leftmost arbre) using ldel_ind; intros; apply_is_ABR.
-inversion H; apply_is_ABR.
-eapply limit_inherit_left.
-rewrite H5.
-apply H0.
-rewrite H6.
-eapply limit_inherit_left.
-apply H0.
-inversion H.
-eapply both_upper.
-apply H8.
-eapply combine.
-eapply both_upper.
-apply H9.
-eapply left_loosen.
-eapply both_lower.
-apply H9.
-omega.
-omega.
-Qed.
-
-Lemma left_delete_is_ABR : forall (arbre : AB) (L R : option Z), is_ABR arbre L R ->
-    is_ABR (delete_leftmost arbre) L R.
-intros.
-functional induction (delete_leftmost arbre) using ldel_ind; intros; apply_is_ABR.
-inversion H; apply_is_ABR.
-eapply delete_left.
-apply H5.
-rewrite H2.
-apply IHa.
-rewrite <- H2.
-rewrite <- H4.
-eapply both_option_reduce.
-apply H5.
-eapply delete_left.
-assumption.
-rewrite H4.
-apply IHa.
-rewrite <- H4.
-rewrite <- H5.
-eapply both_lower.
-apply H6.
-eapply delete_left.
-assumption.
-rewrite H4.
-apply IHa.
-rewrite <- H4.
-rewrite <- H5.
-eapply right_loosen.
-apply H6.
-assumption.
-eapply delete_left.
-assumption.
-rewrite H5.
-apply IHa.
-rewrite <- H5.
-rewrite <- H6.
-apply combine.
-eapply right_loosen.
-eapply both_upper.
-apply H7.
-assumption.
-eapply both_lower.
-apply H7.
-omega.
-inversion H.
-eapply both_option_reduce.
-apply H6.
-eapply left_loosen.
-apply H7.
-omega.
-eapply both_upper.
-apply H7.
-apply combine.
-eapply both_upper.
-apply H8.
-eapply left_loosen.
-eapply both_lower.
-apply H8.
-omega.
-omega.
-Qed.
-
-Lemma leftmost_within_left : forall (v vL: Z) (aL aR : AB) (R : option Z), is_ABR (Node v aL aR) (Some vL) R ->
-    vL < leftmost_value v aL .
-intros.
-functional induction (leftmost_value v aL) using lval_ind; intros.
-apply IHz.
-inversion H.
-apply_is_ABR.
-inversion H6.
-assumption.
-inversion H6.
-assumption.
-eapply left_loosen.
-apply H7.
-inversion H6.
-assumption.
-apply_is_ABR.
-inversion H7.
-assumption.
-inversion H7.
-omega.
-inversion H7.
-assumption.
-apply combine.
-eapply both_upper.
-apply H8.
-eapply left_loosen.
-eapply both_lower.
-apply H8.
-inversion H7.
-assumption.
-inversion H7.
-omega.
-inversion H.
-inversion H6.
-omega.
-inversion H7.
-omega.
-Qed.
-
-Lemma limits_inequality : forall (v vL vR : Z) (aL aR : AB), is_ABR (Node v aL aR) (Some vL) (Some vR) -> vR > vL.
-intros.
-inversion H.
-inversion H7.
-inversion H8.
-omega.
-omega.
-omega.
-Qed.
-
-Lemma leftmost_within_right : forall (v vR: Z) (aL aR : AB) (L : option Z), is_ABR (Node v aL aR) L (Some vR) ->
-    vR >= leftmost_value v aL .
-intros.
-functional induction (leftmost_value v aL) using lval_ind; intros.
-apply IHz.
-inversion H.
-inversion H6.
-apply_is_ABR.
-apply combine.
-eapply both_upper.
-apply H7.
-eapply left_loosen.
-eapply both_lower.
-apply H7.
-omega.
-omega.
-inversion H7.
-apply_is_ABR.
-apply combine.
-eapply both_upper.
-apply H8.
-eapply left_loosen.
-eapply both_lower.
-apply H8.
-omega.
-omega.
-inversion H.
-omega.
-omega.
-Qed.
-
-Lemma delete_is_ABR : forall (arbre : AB) (v : Z), is_ABR arbre None None ->
-    is_ABR (delete arbre v) None None.
-intros.
-functional induction (delete arbre v) using delete_ind; intros; apply_is_ABR.
-apply Z.lt_le_incl.
-eapply leftmost_within_left.
-inversion H.
-inversion H2.
-eapply left_loosen.
-apply H4.
-omega.
-inversion H.
-inversion H2.
 auto.
-inversion H.
-inversion H2.
-apply combine.
-eapply right_loosen.
-eapply both_upper.
-apply H11.
-apply Z.lt_le_incl.
-eapply leftmost_within_left.
-apply H4.
-eapply both_lower.
-apply H11.
-apply Z.lt_le_incl.
-eapply leftmost_within_left.
-eapply left_loosen.
-apply H4.
-omega.
-inversion H.
-eapply left_delete_is_ABR.
-apply_is_ABR.
+intro.
+inversion H0.
+Qed.
 
-Lemma delete_left_is_ABR : 
-
-
-Hypotheses:
-H : is_ABR (Node w (Node _x _x0 _x1) (Node vR aRL _x2)) None None
-e2 : Z.eq_dec w w = left eq_refl
-v : Z
-aL, aR : AB
-H2 : is_ABR (Node _x _x0 _x1) None (Some w)
-H4 : is_ABR (Node vR aRL _x2) (Some w) None
-H0 : v = w
-H1 : aL = Node _x _x0 _x1
-H3 : aR = Node vR aRL _x2
-
-
-Goal:
-is_ABR (delete_leftmost (Node vR aRL _x2)) (Some (leftmost_value vR aRL)) None
-
-
-Lemma left_swap : forall (v v1 v2 : Z) (arbre : AB) (L R : option Z), is_ABR arbre L R ->
-    v2 < (leftmost_value v1 arbre) -> v2 < v1 -> v < v1 -> v < (leftmost_value v2 arbre).
+Lemma max_node_exists : forall (v : Z) (aL aR : AB), is_ABR (Node v aL aR) None None ->
+    find_max (Node v aL aR) <> None.
 intros.
-functional induction (leftmost_value v2 arbre) using lval_ind; intros.
-apply IHz.
+simpl.
+functional induction (find_max aR) using find_max_ind.
+apply IHo.
 inversion H.
-eapply both_option_reduce.
-apply H8.
-eapply both_lower.
-apply H9.
-eapply right_loosen.
-apply H9.
-assumption.
-eapply combine.
-eapply right_loosen.
+inversion H4.
+inversion H11.
+apply_is_ABR.
+apply combine.
 eapply both_upper.
+apply H17.
+eapply left_loosen.
+eapply both_lower.
+apply H17.
+cut (v < x).
+omega.
+eapply limits.
 apply H10.
-assumption.
-eapply both_lower.
+cut (v < x).
+omega.
+eapply limits.
+apply H10.
+intro.
+inversion H0.
+intro.
+inversion H0.
+Qed.
+
+Lemma delete_no_loss : forall (v x : Z) (arbre : AB), is_ABR arbre None None -> x <> v ->
+    value_exists arbre v -> value_exists (delete arbre x) v.
+intros.
+functional induction (delete arbre x) using delete_ind.
+case_eq (Z.eq_dec v x); intros.
+rewrite e.
+apply Curr.
+inversion H1.
+contradict H3.
+auto.
+apply Left.
+apply IHa.
+inversion H.
+eapply both_option_reduce.
 apply H10.
 omega.
+auto.
+apply Right.
+auto.
+contradict e3.
+apply max_node_exists.
+inversion H.
+eapply both_option_reduce.
+apply H4.
+inversion H1.
+contradict H2.
+auto.
+auto.
+inversion H6.
+inversion H1.
+contradict H2.
+auto.
+inversion H6.
+auto.
+inversion H1.
+apply Curr.
+apply Left.
+apply IHa.
+inversion H.
+eapply both_option_reduce.
+apply H9.
+auto.
+auto.
+apply Right.
+auto.
+inversion H1.
+apply Curr.
+apply Left.
+auto.
+apply Right.
+apply IHa.
+inversion H.
+eapply both_option_reduce.
+apply H11.
+auto.
+auto.
+inversion H1.
+Qed.
 
-
-
-
-
-
-
+Theorem delete_sound : forall (v : Z) (a_in a_out : AB), is_ABR a_in None None -> a_out = (delete a_in v) ->
+    is_ABR a_out None None /\ ~(value_exists a_out v) /\ (forall (w : Z), w <> v -> value_exists a_in w -> value_exists a_out w).
+intros.
+rewrite H0.
+split.
+apply delete_is_ABR.
+auto.
+split.
+apply deleted_DNE.
+auto.
+intros.
+apply delete_no_loss; auto.
+Qed.
