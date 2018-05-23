@@ -8,7 +8,10 @@ Inductive AB : Set :=
   | Empty : AB.
 
 (*is_ABR node lower upper
-equal goes left*)
+is_ABR est un type inductif qui est vrai si un arbre binaire (type defini ci-dessus)
+est un arbre binaire de recherche entre les limites donnees. S'il y a une limite a
+gauche ca veut dire qu'il n'y a aucun noed avec une valeur inferieure ou egale a
+cette valeur. Idem a droite mais superieure ou egale*)
 Inductive is_ABR : AB -> (option Z) -> (option Z) -> Prop :=
   | Empty_N : is_ABR Empty None None
   | Empty_L : forall (vL : Z), is_ABR Empty (Some vL) None
@@ -50,6 +53,7 @@ omega.
 apply Empty_L.
 Qed.
 
+(*Tactic tres util au cours des preuves*)
 Ltac apply_is_ABR :=
   repeat
   apply Empty_N || apply Empty_L || apply Empty_U || apply Empty_B || 
@@ -64,6 +68,8 @@ Lemma p3 : is_ABR benchmark_03 None None.
 apply_is_ABR.
 Qed.
 
+(*Une type inductif qui est vraie si la valeur donee existse
+dans l'arbre donne*)
 Inductive value_exists : AB -> Z -> Prop :=
   | Curr : forall (v : Z) (aL aR : AB), value_exists (Node v aL aR) v
   | Left : forall (v vL : Z) (aL aR : AB), value_exists aL vL ->
@@ -81,6 +87,7 @@ eapply Left.
 eapply Curr.
 Qed.
 
+(*Definition de recherche*)
 Fixpoint search (arbre : AB) (v : Z) : bool :=
   match arbre with
   | Empty => false
@@ -118,6 +125,7 @@ eapply both_lower.
 apply H2.
 Qed.
 
+(*Correction: Si search le trouve, alors il existe selon le type value_exists*)
 Theorem search_sound : 
   forall (arbre : AB) (v : Z), is_ABR arbre None None -> search arbre v = true -> value_exists arbre v.
 
@@ -269,6 +277,7 @@ apply H12.
 omega.
 Qed.
 
+(*Completitude, si la valeur existe, alors search va retourner vrai*)
 Theorem search_complete : forall (arbre : AB) (v : Z), is_ABR arbre None None ->
     value_exists arbre v -> search arbre v = true.
 intro.
@@ -304,7 +313,7 @@ eapply both_option_reduce.
 apply H5.
 Qed.
 
-
+(*Definition d'insertion*)
 Fixpoint insert (arbre : AB) (v : Z) : AB :=
   match arbre with
   | Empty => (Node v Empty Empty)
@@ -393,6 +402,7 @@ assumption.
 apply_is_ABR.
 Qed.
 
+(*Preuve qu'un ABR est encore un ABR apres une insertion*)
 Lemma insert_is_ABR : forall (v : Z) (a_in : AB), is_ABR a_in None None ->
     is_ABR (insert a_in v) None None.
 intro.
@@ -422,6 +432,7 @@ omega.
 apply_is_ABR.
 Qed.
 
+(*Preuve que la valeur inseree existe dans l'arbre*)
 Lemma insert_new_value : forall (v : Z) (a_in : AB), is_ABR a_in None None ->
     value_exists (insert a_in v) v.
 intros.
@@ -440,6 +451,7 @@ apply H4.
 apply Curr.
 Qed.
 
+(*Preuve que toutes les valeurs qui etaient avant l'insertion sont encore la apres*)
 Lemma insert_no_loss : forall (v : Z) (a_in : AB), is_ABR a_in None None ->
     (forall (w : Z), value_exists a_in w -> value_exists (insert a_in v) w).
 intros.
@@ -468,6 +480,7 @@ assumption.
 inversion H0.
 Qed.
 
+(*Preuve de correction qui combine les trois lemmes precedents*)
 Theorem insert_sound : forall (v : Z) (a_in a_out : AB), is_ABR a_in None None -> a_out = (insert a_in v) ->
     is_ABR a_out None None /\ value_exists a_out v /\ (forall (w : Z), value_exists a_in w -> value_exists a_out w).
 intros.
@@ -482,6 +495,7 @@ apply insert_no_loss.
 assumption.
 Qed.
 
+(*Fonction auxilaire*)
 Fixpoint find_max (arbre : AB) : option Z :=
   match arbre with
   | Empty => None
@@ -489,6 +503,7 @@ Fixpoint find_max (arbre : AB) : option Z :=
   | (Node x _ aR) => find_max aR
 end.
 
+(*Definition de la suppression sans balancement*)
 Fixpoint delete (arbre : AB) (v : Z) : AB :=
   match arbre with
   | Empty => Empty
@@ -944,6 +959,7 @@ reflexivity.
 inversion H0.
 Qed.
 
+(*Preuve qu'un ABR l'est encore apres une suppression*)
 Lemma delete_is_ABR : forall (arbre : AB) (v : Z), is_ABR arbre None None ->
     is_ABR (delete arbre v) None None.
 intros.
@@ -1124,6 +1140,7 @@ simpl.
 auto.
 Qed.
 
+(*Preuve que la valeur supprimee n'existe plus dans l'ABR*)
 Lemma deleted_DNE : forall (v : Z) (arbre : AB), is_ABR arbre None None -> 
     ~ (value_exists (delete arbre v) v).
 intros.
@@ -1217,6 +1234,8 @@ intro.
 inversion H0.
 Qed.
 
+(*Preuve que, a part la valeur supprimee, toutes les valeurs sont toujours dans l'ABR
+apres la supression*)
 Lemma delete_no_loss : forall (v x : Z) (arbre : AB), is_ABR arbre None None -> x <> v ->
     value_exists arbre v -> value_exists (delete arbre x) v.
 intros.
@@ -1276,6 +1295,7 @@ auto.
 inversion H1.
 Qed.
 
+(*Preuve de correction de delete qui combine les trois grands lemmes precedents*)
 Theorem delete_sound : forall (v : Z) (a_in a_out : AB), is_ABR a_in None None -> a_out = (delete a_in v) ->
     is_ABR a_out None None /\ ~(value_exists a_out v) /\ (forall (w : Z), w <> v -> value_exists a_in w -> value_exists a_out w).
 intros.
